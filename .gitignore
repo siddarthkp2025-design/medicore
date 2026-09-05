@@ -1,0 +1,49 @@
+# ============================================================
+# MediCore HMS — Root Git Ignore Configuration
+# ============================================================
+
+# Environment variables & Secrets (NEVER COMMIT)
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.secret
+
+# Local Tools & Build Binaries
+tools/
+target/
+dist/
+build/
+node_modules/
+
+# Logs & Diagnostics
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.system_generated/
+*.timestamp-*.mjs
+
+# IDE & Editor settings
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+*.sublime-workspace
+*.sublime-project
+.classpath
+.project
+.settings/
+
+# Operating System Files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Local helper scripts (may contain environment-specific local paths)
+database/run_verifier.ps1
+database/DbVerifier.java
+database/*.class
+backend/start_backend.ps1

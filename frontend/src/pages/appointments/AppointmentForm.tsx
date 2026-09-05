@@ -18,10 +18,30 @@ import { useAuth } from '@/hooks/useAuth';
 import { Doctor, Department, Patient } from '@/types';
 import { Calendar, Clock, Stethoscope, User, Building, AlertCircle } from 'lucide-react';
 
+const numericRequiredId = (message: string) =>
+  z.preprocess((val) => {
+    if (val === '' || val === undefined || val === null || (typeof val === 'number' && Number.isNaN(val))) {
+      return undefined;
+    }
+    const num = typeof val === 'string' ? Number(val) : val;
+    return Number.isNaN(num) ? undefined : num;
+  }, z.number({
+    required_error: message,
+    invalid_type_error: message,
+  }).min(1, message));
+
+const numericOptionalId = z.preprocess((val) => {
+  if (val === '' || val === undefined || val === null || (typeof val === 'number' && Number.isNaN(val))) {
+    return undefined;
+  }
+  const num = typeof val === 'string' ? Number(val) : val;
+  return Number.isNaN(num) ? undefined : num;
+}, z.number().optional());
+
 const schema = z.object({
-  patientId: z.number().optional(),
-  departmentId: z.number().min(1, 'Please select a clinical department'),
-  doctorId: z.number().min(1, 'Please select an attending physician'),
+  patientId: numericOptionalId,
+  departmentId: numericRequiredId('Please select a clinical department'),
+  doctorId: numericRequiredId('Please select an attending physician'),
   appointmentDate: z.string().min(1, 'Consultation date is required'),
   appointmentTime: z.string().min(1, 'Time slot is required'),
   reason: z.string().min(3, 'Reason for consultation must be at least 3 characters'),
@@ -44,15 +64,29 @@ export default function AppointmentForm() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
-  const [selectedDeptId, setSelectedDeptId] = useState<number | ''>('');
+  const [selectedDeptId, setSelectedDeptId] = useState<number | ''>(1);
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
+      patientId: undefined,
+      departmentId: 1,
+      doctorId: 2001,
       appointmentDate: new Date(Date.now() + 86400000).toISOString().split('T')[0],
       appointmentTime: '10:00 AM',
+      reason: '',
     }
   });
+
+  const currentDeptId = watch('departmentId');
+  const currentDocId = watch('doctorId');
+  const currentPatId = watch('patientId');
+
+  useEffect(() => {
+    register('departmentId');
+    register('doctorId');
+    register('patientId');
+  }, [register]);
 
   useEffect(() => {
     const loadMasterData = async () => {
@@ -67,8 +101,16 @@ export default function AppointmentForm() {
         setDoctors(docList);
 
         if (deptList.length > 0) {
-          setSelectedDeptId(deptList[0].departmentId);
-          setValue('departmentId', deptList[0].departmentId);
+          const firstDeptId = Number(deptList[0].departmentId);
+          setSelectedDeptId(firstDeptId);
+          setValue('departmentId', firstDeptId, { shouldValidate: true });
+
+          const docsInDept = docList.filter(d => Number(d.departmentId) === firstDeptId);
+          if (docsInDept.length > 0) {
+            setValue('doctorId', Number(docsInDept[0].doctorId), { shouldValidate: true });
+          } else {
+            setValue('doctorId', 0, { shouldValidate: true });
+          }
         }
 
         if (isAdmin) {
@@ -83,20 +125,36 @@ export default function AppointmentForm() {
   }, [isAdmin, setValue]);
 
   // Filter doctors by selected department
+  const activeDept = currentDeptId ? Number(currentDeptId) : (selectedDeptId ? Number(selectedDeptId) : undefined);
   const filteredDoctors = doctors.filter(doc => 
-    !selectedDeptId || doc.departmentId === Number(selectedDeptId)
+    !activeDept || Number(doc.departmentId) === activeDept
   );
 
   const handleDeptChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const deptId = Number(e.target.value);
-    setSelectedDeptId(deptId);
-    setValue('departmentId', deptId);
+    const val = e.target.value;
+    const deptId = val ? Number(val) : 0;
+    setSelectedDeptId(deptId ? deptId : '');
+    setValue('departmentId', deptId, { shouldValidate: true });
 
-    // Auto-select first doctor in department if available
-    const docsInDept = doctors.filter(d => d.departmentId === deptId);
+    // Auto-select first doctor in department if available, else clear
+    const docsInDept = doctors.filter(d => Number(d.departmentId) === deptId);
     if (docsInDept.length > 0) {
-      setValue('doctorId', docsInDept[0].doctorId);
+      setValue('doctorId', Number(docsInDept[0].doctorId), { shouldValidate: true });
+    } else {
+      setValue('doctorId', 0, { shouldValidate: true });
     }
+  };
+
+  const handleDoctorChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const val = e.target.value;
+    const docId = val ? Number(val) : 0;
+    setValue('doctorId', docId, { shouldValidate: true });
+  };
+
+  const handlePatientChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const val = e.target.value;
+    const patId = val ? Number(val) : undefined;
+    setValue('patientId', patId, { shouldValidate: true });
   };
 
   const onSubmit = async (data: FormData) => {
@@ -145,7 +203,8 @@ export default function AppointmentForm() {
                 </Label>
                 <select
                   id="patientId"
-                  {...register('patientId', { valueAsNumber: true })}
+                  value={currentPatId ?? ''}
+                  onChange={handlePatientChange}
                   className="w-full h-10 px-3 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
                 >
                   <option value="">-- Select Registered Patient --</option>
@@ -166,7 +225,7 @@ export default function AppointmentForm() {
               </Label>
               <select
                 id="departmentId"
-                value={selectedDeptId}
+                value={currentDeptId ? currentDeptId : (selectedDeptId || '')}
                 onChange={handleDeptChange}
                 className="w-full h-10 px-3 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
               >
@@ -187,7 +246,8 @@ export default function AppointmentForm() {
               </Label>
               <select
                 id="doctorId"
-                {...register('doctorId', { valueAsNumber: true })}
+                value={currentDocId ?? ''}
+                onChange={handleDoctorChange}
                 className="w-full h-10 px-3 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
               >
                 <option value="">-- Select Doctor --</option>

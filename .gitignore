@@ -47,3 +47,15 @@ database/run_verifier.ps1
 database/DbVerifier.java
 database/*.class
 backend/start_backend.ps1
+
+# Ruflo local secrets and runtime data
+.claude-flow/data/
+.claude-flow/logs/
+.claude-flow/sessions/
+
+# AI tooling (not part of project)
+.claude/
+.claude-flow/
+.swarm/
+.mcp.json
+CLAUDE.md

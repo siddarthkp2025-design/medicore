@@ -5,10 +5,12 @@ import com.medicore.hms.dto.LoginResponse;
 import com.medicore.hms.dto.RegisterRequest;
 import com.medicore.hms.entity.Patient;
 import com.medicore.hms.entity.User;
+import com.medicore.hms.entity.UserSession;
 import com.medicore.hms.exception.BadRequestException;
 import com.medicore.hms.repository.DoctorRepository;
 import com.medicore.hms.repository.PatientRepository;
 import com.medicore.hms.repository.UserRepository;
+import com.medicore.hms.repository.UserSessionRepository;
 import com.medicore.hms.security.CustomUserDetails;
 import com.medicore.hms.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
@@ -33,13 +35,39 @@ public class AuthService {
     private final PatientRepository patientRepository;
     private final DoctorRepository doctorRepository;
     private final PasswordEncoder passwordEncoder;
+    private final UserSessionRepository userSessionRepository;
 
     public LoginResponse authenticateUser(LoginRequest loginRequest) {
+        return authenticateUser(loginRequest, null, null);
+    }
+
+    public LoginResponse authenticateUser(LoginRequest loginRequest,
+                                          String ipAddress, String userAgent) {
         Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword()));
+                new UsernamePasswordAuthenticationToken(
+                        loginRequest.getUsername(), loginRequest.getPassword()));
         SecurityContextHolder.getContext().setAuthentication(authentication);
         String jwt = jwtTokenProvider.generateToken(authentication);
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+
+        // ── Log the successful login session ──────────────────────────────────
+        try {
+            UserSession session = UserSession.builder()
+                    .userId(userDetails.getId())
+                    .username(userDetails.getUsername())
+                    .role(userDetails.getRole())
+                    .ipAddress(ipAddress)
+                    .userAgent(userAgent != null && userAgent.length() > 500
+                            ? userAgent.substring(0, 500) : userAgent)
+                    .loginSuccessful(true)
+                    .build();
+            userSessionRepository.save(session);
+            log.info("Login session recorded for user: {} (role: {})",
+                    userDetails.getUsername(), userDetails.getRole());
+        } catch (Exception e) {
+            // Never let audit logging break the login flow
+            log.warn("Could not record login session for {}: {}", loginRequest.getUsername(), e.getMessage());
+        }
 
         String fullName = userDetails.getUsername();
         if ("PATIENT".equalsIgnoreCase(userDetails.getRole())) {
@@ -81,7 +109,6 @@ public class AuthService {
             throw new BadRequestException("Phone number '" + request.getPhone() + "' is already registered.");
         }
 
-        // 1. Create USERS record with role strictly enforced as PATIENT
         User user = User.builder()
                 .username(request.getUsername().trim().toLowerCase())
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
@@ -92,7 +119,6 @@ public class AuthService {
 
         User savedUser = userRepository.save(user);
 
-        // 2. Create PATIENTS record linked to the saved user
         Patient patient = Patient.builder()
                 .user(savedUser)
                 .firstName(request.getFirstName().trim())

@@ -15,11 +15,11 @@ import { useToast } from '@/components/ui/use-toast';
 import { LoadingSkeleton } from '@/components/common/LoadingSkeleton';
 
 const schema = z.object({
-  name: z.string().min(2, 'Name is required'),
+  name: z.string().trim().min(2, 'Department name is required'),
   description: z.string().optional(),
-  location: z.string().min(2, 'Location is required'),
-  phone: z.string().min(3, 'Phone is required'),
-  isActive: z.boolean(),
+  location: z.string().trim().min(2, 'Location is required'),
+  phone: z.string().trim().min(3, 'Phone/Extension is required'),
+  isActive: z.union([z.boolean(), z.number()]).transform((v) => Boolean(v)),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -32,10 +32,14 @@ export default function DepartmentForm() {
   const [isLoading, setIsLoading] = useState(isEdit);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, setValue, reset, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
-      isActive: true
+      name: '',
+      description: '',
+      location: '',
+      phone: '',
+      isActive: true,
     }
   });
 
@@ -46,34 +50,59 @@ export default function DepartmentForm() {
       departmentService.getById(Number(id))
         .then(dept => {
           if (dept) {
-            setValue('name', dept.name);
-            setValue('description', dept.description || '');
-            setValue('location', dept.location || '');
-            setValue('phone', dept.phone || '');
-            setValue('isActive', dept.isActive ?? true);
+            const isDeptActive = (dept.isActive as any) === 1 || dept.isActive === true || String(dept.isActive) === '1';
+            reset({
+              name: dept.name || '',
+              description: dept.description || '',
+              location: dept.location || '',
+              phone: dept.phone || '',
+              isActive: isDeptActive,
+            });
           }
         })
-        .catch(err => console.error('Failed to load department', err))
+        .catch(err => {
+          console.error('Failed to load department', err);
+          toast({ variant: 'destructive', title: 'Error', description: 'Failed to load department details.' });
+        })
         .finally(() => setIsLoading(false));
     }
-  }, [isEdit, id, setValue]);
+  }, [isEdit, id, reset, toast]);
 
   const onSubmit = async (data: FormData) => {
     setIsSubmitting(true);
     try {
+      const payload = {
+        name: data.name.trim(),
+        description: data.description?.trim() || '',
+        location: data.location.trim(),
+        phone: data.phone.trim(),
+        isActive: data.isActive ? 1 : 0,
+      };
+
       if (isEdit) {
-        await departmentService.update(Number(id), data);
+        await departmentService.update(Number(id), payload as any);
         toast({ title: 'Success', description: 'Department updated successfully.' });
       } else {
-        await departmentService.create(data);
+        await departmentService.create(payload as any);
         toast({ title: 'Success', description: 'Department created successfully.' });
       }
       navigate('/departments');
-    } catch (error) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to save department.' });
+    } catch (error: any) {
+      const message = error.response?.data?.message || 'Failed to save department.';
+      toast({ variant: 'destructive', title: 'Error', description: message });
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const onError = (formErrors: any) => {
+    console.error('DepartmentForm validation errors:', formErrors);
+    const firstErrorMessage = Object.values(formErrors)[0] as any;
+    toast({
+      variant: 'destructive',
+      title: 'Validation Error',
+      description: firstErrorMessage?.message || 'Please check the required fields.'
+    });
   };
 
   if (isLoading) return <LoadingSkeleton rows={5} />;
@@ -85,7 +114,7 @@ export default function DepartmentForm() {
         description="Enter the department details."
       />
 
-      <form onSubmit={handleSubmit(onSubmit)}>
+      <form onSubmit={handleSubmit(onSubmit, onError)}>
         <Card>
           <CardContent className="p-6 space-y-6">
             <div className="space-y-2">
@@ -114,18 +143,19 @@ export default function DepartmentForm() {
             <div className="flex items-center space-x-2 pt-2">
               <Switch 
                 id="isActive" 
-                checked={isActive}
-                onCheckedChange={(checked) => setValue('isActive', checked)}
+                checked={Boolean(isActive)}
+                onCheckedChange={(checked) => setValue('isActive', checked, { shouldValidate: true, shouldDirty: true })}
               />
               <Label htmlFor="isActive">Active Status</Label>
             </div>
+            {errors.isActive && <p className="text-sm text-destructive">{errors.isActive.message}</p>}
 
             <div className="flex justify-end gap-4 pt-4 border-t">
               <Button type="button" variant="outline" onClick={() => navigate('/departments')}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? 'Saving...' : 'Save Department'}
+              <Button type="submit" disabled={isSubmitting} className="min-w-[140px]">
+                {isSubmitting ? 'Saving Department...' : 'Save Department'}
               </Button>
             </div>
           </CardContent>

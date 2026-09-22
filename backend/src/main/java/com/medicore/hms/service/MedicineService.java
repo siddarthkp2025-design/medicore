@@ -16,8 +16,13 @@ public class MedicineService {
     public Medicine createMedicine(Medicine m) { return medicineRepository.save(m); }
     public Medicine updateMedicine(Long id, Medicine m) {
         Medicine existing = getMedicineById(id);
-        existing.setName(m.getName());
-        existing.setStockQuantity(m.getStockQuantity());
+        if (m.getName() != null) existing.setName(m.getName());
+        if (m.getCategory() != null) existing.setCategory(m.getCategory());
+        if (m.getManufacturer() != null) existing.setManufacturer(m.getManufacturer());
+        if (m.getUnitPrice() != null) existing.setUnitPrice(m.getUnitPrice());
+        if (m.getStockQuantity() != null) existing.setStockQuantity(m.getStockQuantity());
+        if (m.getExpiryDate() != null) existing.setExpiryDate(m.getExpiryDate());
+        if (m.getReorderLevel() != null) existing.setReorderLevel(m.getReorderLevel());
         return medicineRepository.save(existing);
     }
     public void deleteMedicine(Long id) { medicineRepository.deleteById(id); }

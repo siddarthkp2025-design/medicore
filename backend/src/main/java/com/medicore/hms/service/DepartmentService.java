@@ -16,10 +16,20 @@ public class DepartmentService {
 
     public List<Department> getAllDepartments() { return departmentRepository.findAll(); }
     public Department getDepartmentById(Long id) { return departmentRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Department not found")); }
-    public Department createDepartment(Department d) { return departmentRepository.save(d); }
+    public Department createDepartment(Department d) {
+        if (d.getIsActive() == null) {
+            d.setIsActive(1);
+        }
+        return departmentRepository.save(d);
+    }
+
     public Department updateDepartment(Long id, Department d) {
         Department existing = getDepartmentById(id);
-        existing.setName(d.getName());
+        if (d.getName() != null) existing.setName(d.getName());
+        if (d.getDescription() != null) existing.setDescription(d.getDescription());
+        if (d.getLocation() != null) existing.setLocation(d.getLocation());
+        if (d.getPhone() != null) existing.setPhone(d.getPhone());
+        if (d.getIsActive() != null) existing.setIsActive(d.getIsActive());
         return departmentRepository.save(existing);
     }
     public void deleteDepartment(Long id) {

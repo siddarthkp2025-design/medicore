@@ -29,8 +29,15 @@ public class DoctorService {
     }
     public Doctor updateDoctor(Long id, Doctor updated) {
         Doctor existing = getDoctorById(id);
-        existing.setFirstName(updated.getFirstName());
-        existing.setLastName(updated.getLastName());
+        if (updated.getFirstName() != null) existing.setFirstName(updated.getFirstName());
+        if (updated.getLastName() != null) existing.setLastName(updated.getLastName());
+        if (updated.getEmail() != null) existing.setEmail(updated.getEmail());
+        if (updated.getPhone() != null) existing.setPhone(updated.getPhone());
+        if (updated.getSpecialization() != null) existing.setSpecialization(updated.getSpecialization());
+        if (updated.getQualification() != null) existing.setQualification(updated.getQualification());
+        if (updated.getExperienceYears() != null) existing.setExperienceYears(updated.getExperienceYears());
+        if (updated.getStatus() != null) existing.setStatus(updated.getStatus());
+        if (updated.getDepartment() != null) existing.setDepartment(updated.getDepartment());
         return doctorRepository.save(existing);
     }
     public void deleteDoctor(Long id) { doctorRepository.deleteById(id); }

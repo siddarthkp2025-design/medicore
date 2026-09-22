@@ -19,8 +19,23 @@ export const admissionService = {
     const response = await api.get<Admission>(`/admissions/${id}`);
     return response.data;
   },
-  create: async (data: Partial<Admission>) => {
-    const response = await api.post<Admission>('/admissions', data);
+  create: async (data: any) => {
+    const payload: any = {
+      admissionDate: data.admissionDate,
+      expectedDischargeDate: data.expectedDischargeDate,
+      diagnosis: data.diagnosis,
+      status: data.status,
+    };
+    if (data.patientId) payload.patient = { id: Number(data.patientId) };
+    if (data.patient) payload.patient = data.patient;
+
+    if (data.roomId) payload.room = { id: Number(data.roomId) };
+    if (data.room) payload.room = data.room;
+
+    if (data.doctorId) payload.doctor = { id: Number(data.doctorId) };
+    if (data.doctor) payload.doctor = data.doctor;
+
+    const response = await api.post<Admission>('/admissions', payload);
     return response.data;
   },
   discharge: async (id: number) => {

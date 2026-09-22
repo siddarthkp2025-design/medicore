@@ -2,6 +2,7 @@ package com.medicore.hms.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 @Entity
 @Table(name = "PRESCRIPTION_ITEMS")
@@ -23,4 +24,11 @@ public class PrescriptionItem {
     @Column(length = 100) private String frequency;
     @Column(length = 100) private String duration;
     @Column(length = 500) private String instructions;
+
+    @JsonProperty("medicineId")
+    public void setMedicineId(Long medicineId) {
+        if (medicineId != null) {
+            this.medicine = Medicine.builder().id(medicineId).build();
+        }
+    }
 }

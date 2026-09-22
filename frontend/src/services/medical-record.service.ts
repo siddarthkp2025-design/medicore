@@ -19,8 +19,22 @@ export const medicalRecordService = {
     const response = await api.get<MedicalRecord>(`/medical-records/${id}`);
     return response.data;
   },
-  create: async (data: Partial<MedicalRecord>) => {
-    const response = await api.post<MedicalRecord>('/medical-records', data);
+  create: async (data: any) => {
+    // Backend @ManyToOne entities need nested objects: { patient: {id}, doctor: {id} }
+    const payload: any = {
+      visitDate: data.visitDate,
+      symptoms:  data.symptoms,
+      diagnosis: data.diagnosis,
+      treatment: data.treatment,
+      notes:     data.notes,
+    };
+    if (data.patientId) payload.patient = { id: Number(data.patientId) };
+    if (data.doctorId)  payload.doctor  = { id: Number(data.doctorId) };
+    // Support already-nested format passthrough
+    if (data.patient)   payload.patient = data.patient;
+    if (data.doctor)    payload.doctor  = data.doctor;
+
+    const response = await api.post<MedicalRecord>('/medical-records', payload);
     return response.data;
   },
   update: async (id: number, data: Partial<MedicalRecord>) => {

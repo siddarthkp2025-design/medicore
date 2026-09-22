@@ -1,6 +1,7 @@
 package com.medicore.hms.entity;
 import jakarta.persistence.*;
 import lombok.*;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import java.math.BigDecimal;
@@ -39,4 +40,25 @@ public class Bill {
     
     @CreationTimestamp @Column(name = "created_at", updatable = false) private LocalDateTime createdAt;
     @UpdateTimestamp @Column(name = "updated_at") private LocalDateTime updatedAt;
+
+    @JsonProperty("patientId")
+    public void setPatientId(Long patientId) {
+        if (patientId != null) {
+            this.patient = Patient.builder().id(patientId).build();
+        }
+    }
+
+    @JsonProperty("appointmentId")
+    public void setAppointmentId(Long appointmentId) {
+        if (appointmentId != null) {
+            this.appointment = Appointment.builder().id(appointmentId).build();
+        }
+    }
+
+    @JsonProperty("admissionId")
+    public void setAdmissionId(Long admissionId) {
+        if (admissionId != null) {
+            this.admission = Admission.builder().id(admissionId).build();
+        }
+    }
 }

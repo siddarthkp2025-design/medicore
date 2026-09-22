@@ -6,6 +6,8 @@ import com.medicore.hms.exception.ConflictException;
 import com.medicore.hms.exception.ForbiddenException;
 import com.medicore.hms.exception.ResourceNotFoundException;
 import com.medicore.hms.repository.AdmissionRepository;
+import com.medicore.hms.repository.DoctorRepository;
+import com.medicore.hms.repository.PatientRepository;
 import com.medicore.hms.repository.RoomRepository;
 import com.medicore.hms.security.SecurityUtils;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +22,8 @@ import java.util.List;
 public class AdmissionService {
     private final AdmissionRepository admissionRepository;
     private final RoomRepository roomRepository;
+    private final PatientRepository patientRepository;
+    private final DoctorRepository doctorRepository;
     private final SecurityUtils securityUtils;
 
     public List<Admission> getAllAdmissions() {
@@ -46,13 +50,33 @@ public class AdmissionService {
         if (securityUtils.isPatient()) {
             throw new ForbiddenException("Access denied: Patients cannot process inpatient admissions");
         }
+
+        if (admission.getRoom() == null || admission.getRoom().getId() == null) {
+            throw new ResourceNotFoundException("Room ID is required for admission");
+        }
         Room room = roomRepository.findById(admission.getRoom().getId())
-                .orElseThrow(() -> new ResourceNotFoundException("Room not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Room not found with id: " + admission.getRoom().getId()));
         if (!"Available".equalsIgnoreCase(room.getStatus())) {
             throw new ConflictException("Room is not available (Current status: " + room.getStatus() + ")");
         }
+
+        if (admission.getPatient() != null && admission.getPatient().getId() != null) {
+            admission.setPatient(patientRepository.findById(admission.getPatient().getId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Patient not found with id: " + admission.getPatient().getId())));
+        } else {
+            throw new ResourceNotFoundException("Patient ID is required for admission");
+        }
+
+        if (securityUtils.isDoctor()) {
+            admission.setDoctor(securityUtils.getCurrentDoctor());
+        } else if (admission.getDoctor() != null && admission.getDoctor().getId() != null) {
+            admission.setDoctor(doctorRepository.findById(admission.getDoctor().getId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with id: " + admission.getDoctor().getId())));
+        }
+
         room.setStatus("Occupied");
         roomRepository.save(room);
+        admission.setRoom(room);
         admission.setStatus("Admitted");
         if (admission.getAdmissionDate() == null) {
             admission.setAdmissionDate(LocalDate.now());

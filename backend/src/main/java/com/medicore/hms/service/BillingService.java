@@ -3,7 +3,10 @@ package com.medicore.hms.service;
 import com.medicore.hms.entity.Bill;
 import com.medicore.hms.exception.ForbiddenException;
 import com.medicore.hms.exception.ResourceNotFoundException;
+import com.medicore.hms.repository.AdmissionRepository;
+import com.medicore.hms.repository.AppointmentRepository;
 import com.medicore.hms.repository.BillRepository;
+import com.medicore.hms.repository.PatientRepository;
 import com.medicore.hms.security.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -17,6 +20,9 @@ import java.util.List;
 @RequiredArgsConstructor
 public class BillingService {
     private final BillRepository billRepository;
+    private final PatientRepository patientRepository;
+    private final AppointmentRepository appointmentRepository;
+    private final AdmissionRepository admissionRepository;
     private final SecurityUtils securityUtils;
 
     public List<Bill> getAllBills() {
@@ -41,6 +47,22 @@ public class BillingService {
         if (securityUtils.isPatient()) {
             throw new ForbiddenException("Access denied: Patients cannot generate hospital bills");
         }
+
+        if (bill.getPatient() != null && bill.getPatient().getId() != null) {
+            bill.setPatient(patientRepository.findById(bill.getPatient().getId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Patient not found with id: " + bill.getPatient().getId())));
+        } else {
+            throw new ResourceNotFoundException("Patient ID is required for generating bills");
+        }
+
+        if (bill.getAppointment() != null && bill.getAppointment().getId() != null) {
+            appointmentRepository.findById(bill.getAppointment().getId()).ifPresent(bill::setAppointment);
+        }
+
+        if (bill.getAdmission() != null && bill.getAdmission().getId() != null) {
+            admissionRepository.findById(bill.getAdmission().getId()).ifPresent(bill::setAdmission);
+        }
+
         if (bill.getItems() != null) {
             bill.getItems().forEach(item -> item.setBill(bill));
         }
@@ -64,7 +86,6 @@ public class BillingService {
     @Transactional
     public Bill processPayment(Long id, String method) {
         Bill bill = getBillById(id);
-        // Both patient paying own bill, or admin recording payment
         if (securityUtils.isPatient()) {
             securityUtils.validatePatientAccess(bill.getPatient().getId());
         }

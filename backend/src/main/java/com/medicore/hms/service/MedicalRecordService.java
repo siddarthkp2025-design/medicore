@@ -3,7 +3,9 @@ package com.medicore.hms.service;
 import com.medicore.hms.entity.MedicalRecord;
 import com.medicore.hms.exception.ForbiddenException;
 import com.medicore.hms.exception.ResourceNotFoundException;
+import com.medicore.hms.repository.DoctorRepository;
 import com.medicore.hms.repository.MedicalRecordRepository;
+import com.medicore.hms.repository.PatientRepository;
 import com.medicore.hms.security.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -16,6 +18,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class MedicalRecordService {
     private final MedicalRecordRepository recordRepository;
+    private final PatientRepository patientRepository;
+    private final DoctorRepository doctorRepository;
     private final SecurityUtils securityUtils;
 
     public List<MedicalRecord> getAllRecords() {
@@ -42,9 +46,20 @@ public class MedicalRecordService {
         if (securityUtils.isPatient()) {
             throw new ForbiddenException("Access denied: Patients cannot author clinical medical records");
         }
-        if (securityUtils.isDoctor() && (record.getDoctor() == null || record.getDoctor().getId() == null)) {
+        if (securityUtils.isDoctor()) {
             record.setDoctor(securityUtils.getCurrentDoctor());
+        } else if (record.getDoctor() != null && record.getDoctor().getId() != null) {
+            record.setDoctor(doctorRepository.findById(record.getDoctor().getId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with id: " + record.getDoctor().getId())));
         }
+
+        if (record.getPatient() != null && record.getPatient().getId() != null) {
+            record.setPatient(patientRepository.findById(record.getPatient().getId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Patient not found with id: " + record.getPatient().getId())));
+        } else {
+            throw new ResourceNotFoundException("Patient ID is required for clinical medical records");
+        }
+
         if (record.getVisitDate() == null) {
             record.setVisitDate(LocalDate.now());
         }

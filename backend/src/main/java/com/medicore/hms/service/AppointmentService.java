@@ -99,7 +99,13 @@ public class AppointmentService {
                 throw new ForbiddenException("Patients can only cancel their appointments");
             }
         }
-        apt.setStatus(status);
+        String normalizedStatus = status;
+        if ("SCHEDULED".equalsIgnoreCase(status)) normalizedStatus = "Scheduled";
+        else if ("CONFIRMED".equalsIgnoreCase(status)) normalizedStatus = "Confirmed";
+        else if ("COMPLETED".equalsIgnoreCase(status)) normalizedStatus = "Completed";
+        else if ("CANCELLED".equalsIgnoreCase(status) || "CANCELED".equalsIgnoreCase(status)) normalizedStatus = "Cancelled";
+        else if ("NO_SHOW".equalsIgnoreCase(status) || "NO SHOW".equalsIgnoreCase(status) || "NOSHOW".equalsIgnoreCase(status)) normalizedStatus = "No Show";
+        apt.setStatus(normalizedStatus);
         return appointmentRepository.save(apt);
     }
 

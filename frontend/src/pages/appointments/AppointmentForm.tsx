@@ -101,16 +101,21 @@ export default function AppointmentForm() {
         setDoctors(docList);
 
         if (deptList.length > 0) {
-          const firstDeptId = Number(deptList[0].departmentId);
+          // API returns dept.id (not dept.departmentId)
+          const firstDeptId = Number((deptList[0] as any).id ?? deptList[0].departmentId);
           setSelectedDeptId(firstDeptId);
           setValue('departmentId', firstDeptId, { shouldValidate: true });
 
-          const docsInDept = docList.filter(d => Number(d.departmentId) === firstDeptId);
+          // API returns doc.department.id (not doc.departmentId)
+          const docsInDept = docList.filter(d => {
+            const dDeptId = Number((d as any).department?.id ?? (d as any).departmentId);
+            return dDeptId === firstDeptId;
+          });
           if (docsInDept.length > 0) {
-            setValue('doctorId', Number(docsInDept[0].doctorId), { shouldValidate: true });
-          } else {
-            setValue('doctorId', 0, { shouldValidate: true });
+            // API returns doc.id (not doc.doctorId)
+            setValue('doctorId', Number((docsInDept[0] as any).id ?? docsInDept[0].doctorId), { shouldValidate: true });
           }
+          // Don't set doctorId to 0 — keep default or let user select
         }
 
         if (isAdmin) {
@@ -124,11 +129,13 @@ export default function AppointmentForm() {
     loadMasterData();
   }, [isAdmin, setValue]);
 
-  // Filter doctors by selected department
+  // Filter doctors by selected department — API returns doc.department.id
   const activeDept = currentDeptId ? Number(currentDeptId) : (selectedDeptId ? Number(selectedDeptId) : undefined);
-  const filteredDoctors = doctors.filter(doc => 
-    !activeDept || Number(doc.departmentId) === activeDept
-  );
+  const filteredDoctors = doctors.filter(doc => {
+    if (!activeDept) return true;
+    const dDeptId = Number((doc as any).department?.id ?? (doc as any).departmentId);
+    return dDeptId === activeDept;
+  });
 
   const handleDeptChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value;
@@ -136,12 +143,13 @@ export default function AppointmentForm() {
     setSelectedDeptId(deptId ? deptId : '');
     setValue('departmentId', deptId, { shouldValidate: true });
 
-    // Auto-select first doctor in department if available, else clear
-    const docsInDept = doctors.filter(d => Number(d.departmentId) === deptId);
+    // Auto-select first doctor in new department
+    const docsInDept = doctors.filter(d => {
+      const dDeptId = Number((d as any).department?.id ?? (d as any).departmentId);
+      return dDeptId === deptId;
+    });
     if (docsInDept.length > 0) {
-      setValue('doctorId', Number(docsInDept[0].doctorId), { shouldValidate: true });
-    } else {
-      setValue('doctorId', 0, { shouldValidate: true });
+      setValue('doctorId', Number((docsInDept[0] as any).id ?? docsInDept[0].doctorId), { shouldValidate: true });
     }
   };
 
@@ -230,11 +238,14 @@ export default function AppointmentForm() {
                 className="w-full h-10 px-3 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
               >
                 <option value="">-- Select Specialty --</option>
-                {departments.map(dept => (
-                  <option key={dept.departmentId} value={dept.departmentId}>
-                    {dept.name} {dept.location ? `(${dept.location})` : ''}
-                  </option>
-                ))}
+                {departments.map(dept => {
+                  const dId = (dept as any).id ?? dept.departmentId;
+                  return (
+                    <option key={dId} value={dId}>
+                      {dept.name} {dept.location ? `(${dept.location})` : ''}
+                    </option>
+                  );
+                })}
               </select>
               {errors.departmentId && <p className="text-2xs text-rose-600 font-semibold">{errors.departmentId.message}</p>}
             </div>
@@ -251,11 +262,14 @@ export default function AppointmentForm() {
                 className="w-full h-10 px-3 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
               >
                 <option value="">-- Select Doctor --</option>
-                {filteredDoctors.map(doc => (
-                  <option key={doc.doctorId} value={doc.doctorId}>
-                    Dr. {doc.firstName} {doc.lastName} • {doc.specialization} ({doc.qualification || 'MD'})
-                  </option>
-                ))}
+                {filteredDoctors.map(doc => {
+                  const dId = (doc as any).id ?? doc.doctorId;
+                  return (
+                    <option key={dId} value={dId}>
+                      Dr. {doc.firstName} {doc.lastName} • {doc.specialization} ({doc.qualification || 'MD'})
+                    </option>
+                  );
+                })}
               </select>
               {errors.doctorId && <p className="text-2xs text-rose-600 font-semibold">{errors.doctorId.message}</p>}
             </div>

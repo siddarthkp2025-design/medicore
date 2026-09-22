@@ -23,6 +23,7 @@ const AppointmentDetail = React.lazy(() => import('@/pages/appointments/Appointm
 const AdmissionList = React.lazy(() => import('@/pages/admissions/AdmissionList'));
 const AdmissionForm = React.lazy(() => import('@/pages/admissions/AdmissionForm'));
 const RoomList = React.lazy(() => import('@/pages/rooms/RoomList'));
+const RoomForm = React.lazy(() => import('@/pages/rooms/RoomForm'));
 const MedicalRecordList = React.lazy(() => import('@/pages/medical-records/MedicalRecordList'));
 const MedicalRecordForm = React.lazy(() => import('@/pages/medical-records/MedicalRecordForm'));
 const MedicineList = React.lazy(() => import('@/pages/medicines/MedicineList'));
@@ -92,6 +93,8 @@ export function AppRouter() {
             {/* Rooms */}
             <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
               <Route path="/rooms" element={<RoomList />} />
+              <Route path="/rooms/new" element={<RoomForm />} />
+              <Route path="/rooms/:id/edit" element={<RoomForm />} />
             </Route>
 
             {/* Medical Records */}

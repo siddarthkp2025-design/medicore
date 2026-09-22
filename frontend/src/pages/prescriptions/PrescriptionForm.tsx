@@ -7,6 +7,7 @@ import { Plus, Trash2, User, Pill, Calendar, FileText } from 'lucide-react';
 import { prescriptionService } from '@/services/prescription.service';
 import { patientService } from '@/services/patient.service';
 import { medicineService } from '@/services/medicine.service';
+import api from '@/services/api';
 import { PageHeader } from '@/components/common/PageHeader';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -40,6 +41,7 @@ export default function PrescriptionForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [medicines, setMedicines] = useState<Medicine[]>([]);
+  const [records, setRecords] = useState<any[]>([]);
 
   const { register, handleSubmit, control, setValue, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -59,14 +61,17 @@ export default function PrescriptionForm() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [patRes, medRes] = await Promise.all([
+        const [patRes, medRes, recRes] = await Promise.all([
           patientService.getAll(),
-          medicineService.getAll()
+          medicineService.getAll(),
+          api.get('/medical-records').catch(() => ({ data: [] }))
         ]);
         const patList = patRes?.content || (Array.isArray(patRes) ? patRes : []);
         const medList = medRes?.content || (Array.isArray(medRes) ? medRes : []);
+        const recList = Array.isArray(recRes?.data) ? recRes.data : (recRes?.data?.content || []);
         setPatients(patList);
         setMedicines(medList);
+        setRecords(recList);
 
         if (patList.length > 0) {
           const firstPatId = Number((patList[0] as any).id ?? patList[0].patientId);
@@ -94,6 +99,14 @@ export default function PrescriptionForm() {
   };
 
   const selectedPatientId = watch('patientId');
+  const selectedRecordId = watch('recordId');
+
+  // Filter records for the selected patient
+  const patientRecords = records.filter(r => {
+    if (!selectedPatientId) return true;
+    const patId = Number(r.patient?.id ?? r.patientId);
+    return patId === Number(selectedPatientId);
+  });
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -115,7 +128,11 @@ export default function PrescriptionForm() {
                 <select
                   id="patientId"
                   value={selectedPatientId ?? ''}
-                  onChange={(e) => setValue('patientId', Number(e.target.value), { shouldValidate: true })}
+                  onChange={(e) => {
+                    const val = e.target.value ? Number(e.target.value) : undefined;
+                    setValue('patientId', val as any, { shouldValidate: true });
+                    setValue('recordId', undefined);
+                  }}
                   className="w-full h-10 px-3 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
                 >
                   <option value="">-- Select Patient --</option>
@@ -131,18 +148,32 @@ export default function PrescriptionForm() {
                 {errors.patientId && <p className="text-2xs text-rose-600 font-semibold">{errors.patientId.message}</p>}
               </div>
 
-              {/* Medical Record ID (Optional) */}
+              {/* Medical Record Dropdown (Optional) */}
               <div className="space-y-2">
                 <Label htmlFor="recordId" className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                  <FileText className="h-3.5 w-3.5 text-primary-600" /> Medical Record ID (Optional)
+                  <FileText className="h-3.5 w-3.5 text-primary-600" /> Clinical Encounter / Record
                 </Label>
-                <Input
+                <select
                   id="recordId"
-                  type="number"
-                  placeholder="e.g. 5001"
-                  {...register('recordId', { valueAsNumber: true })}
-                  className="h-10 text-xs font-semibold border-slate-200"
-                />
+                  value={selectedRecordId ?? ''}
+                  onChange={(e) => {
+                    const val = e.target.value ? Number(e.target.value) : undefined;
+                    setValue('recordId', val);
+                  }}
+                  className="w-full h-10 px-3 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                >
+                  <option value="">-- None / General Prescription --</option>
+                  {patientRecords.map(rec => {
+                    const rId = Number(rec.id ?? rec.recordId);
+                    const dateStr = rec.visitDate ? ` (${rec.visitDate})` : '';
+                    const diagStr = rec.diagnosis ? ` - ${rec.diagnosis}` : '';
+                    return (
+                      <option key={rId} value={rId}>
+                        Record #{rId}{dateStr}{diagStr}
+                      </option>
+                    );
+                  })}
+                </select>
               </div>
 
               {/* Prescription Date */}

@@ -66,7 +66,10 @@ public class PrescriptionService {
         }
 
         if (p.getMedicalRecord() != null && p.getMedicalRecord().getId() != null) {
-            medicalRecordRepository.findById(p.getMedicalRecord().getId()).ifPresent(p::setMedicalRecord);
+            medicalRecordRepository.findById(p.getMedicalRecord().getId())
+                    .ifPresentOrElse(p::setMedicalRecord, () -> p.setMedicalRecord(null));
+        } else {
+            p.setMedicalRecord(null);
         }
 
         if (p.getPrescriptionDate() == null) {

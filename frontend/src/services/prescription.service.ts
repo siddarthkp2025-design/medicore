@@ -30,8 +30,12 @@ export const prescriptionService = {
     if (data.doctorId) payload.doctor = { id: Number(data.doctorId) };
     if (data.doctor) payload.doctor = data.doctor;
 
-    if (data.recordId) payload.medicalRecord = { id: Number(data.recordId) };
-    if (data.medicalRecord) payload.medicalRecord = data.medicalRecord;
+    if (data.recordId && Number(data.recordId) > 0 && !Number.isNaN(Number(data.recordId))) {
+      payload.medicalRecord = { id: Number(data.recordId) };
+    }
+    if (data.medicalRecord && data.medicalRecord.id) {
+      payload.medicalRecord = data.medicalRecord;
+    }
 
     if (Array.isArray(data.items)) {
       payload.items = data.items.map((item: any) => ({
